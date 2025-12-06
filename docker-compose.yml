@@ -1,0 +1,47 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse
+    ports:
+      - "8123:8123"   # HTTP-интерфейс
+    environment:
+      CLICKHOUSE_DB: weather
+      CLICKHOUSE_USER: user
+      CLICKHOUSE_PASSWORD: password
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web-консоль
+    volumes:
+      - minio_data:/data
+
+  prefect:
+    image: python:3.11-slim
+    container_name: prefect
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: bash -c "pip install prefect clickhouse-driver minio requests && tail -f /dev/null"
+    depends_on:
+      - clickhouse
+      - minio
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+
+volumes:
+  clickhouse_data:
+  minio_data:
